@@ -70,7 +70,7 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 void ASlashCharacter::MoveForward(float Value)
 {
-	if (ActionState == EActionState::EAS_Attacking) return;
+	if (ActionState != EActionState::EAS_Unoccupied) return;
 	if(Controller && (Value != 0.f))
 	{
 		// find out which way is Forward
@@ -84,7 +84,7 @@ void ASlashCharacter::MoveForward(float Value)
 
 void ASlashCharacter::MoveRight(float Value)
 {
-	if (ActionState == EActionState::EAS_Attacking) return;
+	if (ActionState != EActionState::EAS_Unoccupied) return;
 	if(Controller && (Value != 0.f))
 	{
 
@@ -114,6 +114,22 @@ void ASlashCharacter::FKeyPressed()
 	{
 		OverlappingWeapon->Equip(GetMesh(), FName("LeftHandSocket"));
 		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+		EquippedWeapon = OverlappingWeapon;
+	}
+	else
+	{
+		if (CanDisarm())
+		{
+			PlayEquipMontage(FName("Unequipp"));
+			CharacterState = ECharacterState::ECS_UnEquipped;
+			ActionState = EActionState::EAS_EquippingWeapon;
+		}
+		else if (CanArm()) 
+		{
+			PlayEquipMontage(FName("Equip"));
+			CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+			ActionState = EActionState::EAS_EquippingWeapon;
+		}
 	}
 }
 
@@ -128,6 +144,36 @@ void ASlashCharacter::Attack()
 bool ASlashCharacter::CanAttack()
 {
 	return ActionState == EActionState::EAS_Unoccupied && CharacterState != ECharacterState::ECS_UnEquipped;
+}
+
+
+bool ASlashCharacter::CanDisarm()
+{
+	return ActionState == EActionState::EAS_Unoccupied && CharacterState != ECharacterState::ECS_UnEquipped;
+}
+
+bool ASlashCharacter::CanArm()
+{
+	return ActionState == EActionState::EAS_Unoccupied && CharacterState == ECharacterState::ECS_UnEquipped && EquippedWeapon; 
+}
+
+void ASlashCharacter::Disarm()
+{
+	if (EquippedWeapon) {
+		EquippedWeapon->AttachToSocket(GetMesh(), FName("SpineSocket"));
+	}
+}
+
+void ASlashCharacter::Arm()
+{
+	if (!EquippedWeapon) {
+		EquippedWeapon->AttachToSocket(GetMesh(), FName("LeftHandSocket"));
+	}
+}
+
+void ASlashCharacter::FinishEquipping()
+{
+	ActionState = EActionState::EAS_Unoccupied;
 }
 
 
@@ -151,6 +197,15 @@ void ASlashCharacter::PlayAttackMontage()
 		default:
 			break;
 		}
+		AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
+	}
+}
+
+void ASlashCharacter::PlayEquipMontage(FName SectionName)
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && EquipMontage) {
+		AnimInstance->Montage_Play(EquipMontage);
 		AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
 	}
 }
